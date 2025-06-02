@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat With Dwiti's AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #e0e0e0; /* Changed to a medium grey */
+        }
+        .main-chat-container {
+            height: 100%;
+            max-height: 100vh;
+            background-color: #f0f0f0; /* Changed to a lighter grey for container */
+        }
+
+        /* Scrollbar styling */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .chat-messages {
+            scrollbar-width: thin;
+            scrollbar-color: #888 #f1f1f1;
+        }
+
+        /* Message bubble animations */
+        .message-bubble {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            color: #000000; /* Changed text color to black for all bubbles */
+        }
+        .message-bubble.user {
+            animation: slideInUser 0.3s forwards;
+            background-color: #cccccc; /* Grey background for user messages */
+            color: #000000; /* Ensure text is black */
+        }
+        .message-bubble.bot, .message-bubble.loading, .message-bubble.error {
+            animation: slideInBot 0.3s forwards;
+            background-color: #ffffff; /* White background for bot messages, but text is black */
+            color: #000000; /* Ensure text is black */
+        }
+
+        @keyframes slideInUser {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes slideInBot {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Textarea height adjustments */
+        textarea#system-instruction-input {
+            min-height: 40px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+        /* Adjusted padding and overflow for message-input to make space for inner icons */
+        textarea#message-input {
+            min-height: 48px;
+            max-height: 150px;
+            overflow-y: hidden; /* Start hidden, change to auto if content grows */
+            padding-left: 0.5rem; /* Base padding */
+            padding-right: 0.5rem; /* Base padding */
+        }
+        /* Custom scrollbar for message input if it grows */
+        textarea#message-input::-webkit-scrollbar {
+            width: 6px;
+        }
+        textarea#message-input::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        textarea#message-input::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        textarea#message-input::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+
+        /* Custom styles for code blocks */
+        .message-bubble .code-block-wrapper {
+            background-color: #282c34;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1em;
+        }
+        .message-bubble .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: #3b4048;
+            color: #abb2bf;
+            font-size: 0.8em;
+            border-bottom: 1px solid #4a5059;
+        }
+        .message-bubble .code-block-header button {
+            background: none;
+            border: none;
+            color: #abb2bf;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+            display: flex; /* Align icon and text */
+            align-items: center;
+        }
+        .message-bubble .code-block-header button:hover {
+            background-color: #5c6370;
+        }
+        .message-bubble .code-block-header button svg {
+            width: 1.2rem; /* Slightly larger copy icon */
+            height: 1.2rem;
+            margin-right: 0.3rem; /* Space between icon and text */
+        }
+        .message-bubble pre {
+            padding: 10px;
+            overflow-x: auto;
+            color: #abb2bf;
+        }
+        .message-bubble code {
+            font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+            font-size: 0.85em;
+            display: block;
+            white-space: pre-wrap;
+        }
+
+        /* Style for attachment links */
+        .attachment-link {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: #e0f2f7;
+            border: 1px solid #b3e0ff;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #0288d1;
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out;
+            font-size: 0.9em;
+        }
+        .attachment-link:hover {
+            background-color: #cce9f5;
+        }
+        .attachment-link svg {
+            margin-right: 8px;
+        }
+
+        /* Input field wrapper with inner icons */
+        .input-field-wrapper {
+            display: flex; /* Make it a flex container for its children */
+            align-items: center; /* Vertically center items */
+            background-color: #f7f7f7; /* Light "white gray" background */
+            border: 1px solid #a0aec0; /* Light blue-gray border */
+            border-radius: 9999px; /* Fully rounded corners */
+            flex-grow: 1; /* Allow it to take available space */
+            padding: 0.25rem; /* Small padding around the inner content */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* subtle shadow */
+        }
+        .input-field-wrapper:focus-within {
+            border-color: #3b82f6; /* Blue border on focus */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); /* Blue ring on focus */
+        }
+
+        /* Styles for the round buttons *inside* the input field */
+        .input-icon-inner-round {
+            border: none;
+            cursor: pointer;
+            border-radius: 9999px; /* Fully rounded */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem; /* Smaller size: 32px */
+            height: 2rem; /* Smaller size: 32px */
+            flex-shrink: 0; /* Prevent buttons from shrinking */
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            margin-right: 0.5rem; /* Space between icons and text */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Subtle shadow */
+        }
+        .input-icon-inner-round svg {
+            width: 1.1rem; /* Slightly smaller icons */
+            height: 1.1rem;
+        }
+        .input-icon-inner-round:hover {
+            background-color: #d1d5db; /* Darker gray on hover */
+            color: #4a5568;
+        }
+
+        /* Specific icon colors/states for inner buttons */
+        #attach-button-inner {
+            background-color: #e2e8f0; /* Light gray background for attach */
+            color: #718096; /* Default gray for icon */
+        }
+        #speaker-button-inner {
+            background-color: #22c55e; /* Green background for speaker */
+            color: white; /* White icon */
+        }
+        #speaker-button-inner:hover {
+            background-color: #1a9e4f; /* Slightly darker green on hover */
+        }
+
+        #mic-button-inner {
+            background-color: #e2e8f0; /* Light gray background for mic */
+            color: #718096; /* Default gray for icon */
+        }
+        #mic-button-inner.listening {
+            background-color: #ef4444; /* Red for listening */
+            color: white;
+            animation: pulse-mic 1.5s infinite;
+        }
+
+        @keyframes pulse-mic {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Toggle button for the whole settings panel */
+        #toggle-settings-panel {
+            background: none;
+            border: none;
+            color: #4a5568;
+            font-size: 1.25rem; /* Default size for desktop */
+            line-height: 1;
+            padding: 0 5px;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* Align right */
+            width: 100%; /* Take full width for alignment */
+            font-weight: 500;
+            padding-right: 0; /* Remove default padding */
+        }
+        #toggle-settings-panel .label {
+            margin-right: 5px;
+            font-size: 0.9rem; /* Adjust text size */
+            color: #4a5568;
+        }
+        #toggle-settings-panel .arrow {
+            transition: transform 0.2s ease-in-out;
+            font-size: 1rem; /* Smaller arrow for better integration */
+        }
+        #toggle-settings-panel.expanded .arrow {
+            transform: rotate(90deg); /* Down arrow when expanded */
+        }
+        #toggle-settings-panel.collapsed .arrow {
+            transform: rotate(0deg); /* Right arrow when collapsed */
+        }
+
+        /* Initial state of settings panel content */
+        #settings-panel-content {
+            display: none;
+            overflow: hidden; /* Hide overflow during transition */
+            transition: all 0.3s ease-out; /* Smooth transition for height/display */
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 640px) {
+            #toggle-settings-panel .arrow {
+                font-size: 0.8rem; /* Smaller size for mobile */
+            }
+            #toggle-settings-panel .label {
+                font-size: 0.8rem;
+            }
+            .input-area-container {
+                /* On mobile, input field takes full width, send button on new line below */
+                flex-wrap: wrap;
+                align-items: center; /* Center items vertically */
+                justify-content: center;
+            }
+            .input-field-wrapper {
+                width: 100%; /* Take full width */
+                margin-bottom: 0.5rem; /* Space below it */
+            }
+            #send-button {
+                width: 48px; /* Fixed width, centered */
+                height: 48px; /* Fixed height */
+                margin-left: auto; /* Push to center */
+                margin-right: auto; /* Push to center */
+                order: 1; /* Place at the bottom */
+            }
+            .p-4.border-t {
+                padding: 0.75rem;
+            }
+        }
+
+        /* Message bubble styles */
+        .message-bubble.user {
+            background-color: #cccccc; /* Grey background for user messages */
+            color: #000000; /* Black text for user messages */
+            border-bottom-right-radius: 0; /* Sharp corner on bottom right */
+        }
+        .message-bubble.bot {
+            background-color: #ffffff; /* White background for bot messages */
+            color: #000000; /* Black text for bot messages */
+            border-bottom-left-radius: 0; /* Sharp corner on bottom left */
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .message-bubble.error {
+            background-color: #fee2e2; /* Light red background for errors */
+            color: #991b1b; /* Dark red text for errors */
+            border-radius: 0.5rem; /* Keep all corners rounded for errors */
+        }
+
+        /* Chat messages area background */
+        #chat-messages {
+            background-color: #e0e0e0; /* Medium grey background for chat area */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4 selection:bg-blue-500 selection:text-white">
+
+    <div class="bg-white shadow-xl rounded-lg w-full max-w-2xl main-chat-container flex flex-col">
+        <header class="bg-blue-600 text-white p-4 rounded-t-lg flex items-center justify-between">
+            <h1 class="text-xl font-semibold">Chat With Dwiti's AI</h1>
+            <div id="status-indicator" class="w-3 h-3 bg-green-400 rounded-full animate-pulse" title="Online"></div>
+        </header>
+
+        <div class="p-3 border-b border-gray-200">
+            <div class="flex items-center justify-end mb-2">
+                <button id="toggle-settings-panel" class="collapsed" title="Toggle Input/Output Settings and System Instruction">
+                    <span class="label">Settings</span>
+                    <span class="arrow">▶</span>
+                </button>
+            </div>
+
+            <div id="settings-panel-content">
+                <div class="flex flex-col sm:flex-row sm:space-x-4 mb-3">
+                    <div class="flex-1 mb-2 sm:mb-0">
+                        <label for="input-language-select" class="block text-sm font-medium text-gray-700 mb-1">Input Language:</label>
+                        <select id="input-language-select" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm">
+                            <option value="en-US">English (US)</option>
+                            <option value="hi-IN">Hindi (India)</option>
+                            <option value="or-IN">Odia (India)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label for="output-language-select" class="block text-sm font-medium text-gray-700 mb-1">Output Language:</label>
+                        <select id="output-language-select" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-sm">
+                            <option value="en-US">English (US)</option>
+                            <option value="hi-IN">Hindi (India)</option>
+                            <option value="or-IN">Odia (India)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-1">
+                    <label for="system-instruction-input" class="block text-sm font-medium text-gray-700">System Instruction (Optional):</label>
+                </div>
+                <textarea id="system-instruction-input" rows="2" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y outline-none text-sm" placeholder="e.g., Act as a helpful assistant that speaks like a pirate."></textarea>
+            </div>
+        </div>
+
+        <div id="chat-messages" class="flex-1 p-6 space-y-4 overflow-y-auto chat-messages">
+            <div class="flex">
+                <div class="message-bubble bot bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs lg:max-w-md shadow">
+                    <p class="text-sm">Hello! How can I help you today?</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="typing-indicator-container" class="p-6 hidden">
+             <div class="flex">
+                <div class="message-bubble loading bg-gray-200 text-gray-600 p-3 rounded-lg shadow flex items-center">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Typing...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="error-message-container" class="p-4 hidden">
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+                <strong class="font-bold">Error:</strong>
+                <span class="block sm:inline" id="error-text">Something went wrong.</span>
+            </div>
+        </div>
+
+        <div class="bg-gray-50 p-4 border-t border-gray-200 rounded-b-lg">
+            <div class="flex items-end space-x-2 input-area-container">
+                <div class="input-field-wrapper flex-grow">
+                    <button id="attach-button-inner" class="input-icon-inner-round" title="Attach file">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.414a4 4 0 00-5.656-5.656l-6.415 6.414a6 6 0 108.486 8.486L20.5 13.5" />
+                        </svg>
+                    </button>
+                    <input type="file" id="file-input" class="hidden" accept=".doc,.docx,.xls,.xlsx,.pdf,.txt,.png,.jpg,.jpeg,.gif">
+
+                    <button id="speaker-button-inner" class="input-icon-inner-round" title="Toggle AI voice output">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M9.383 3.023A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.27zM16.403 12.308a1 1 0 010 1.414 4.002 4.002 0 000 5.656A1 1 0 0114.289 20a6.002 6.002 0 010-8.485 1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <button id="mic-button-inner" class="input-icon-inner-round" title="Voice input">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0 5 5 0 01-10 0 1 1 0 10-2 0 7.001 7.001 0 006 6.93V17h4v-2.07z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    <textarea id="message-input" rows="1" class="flex-1 py-3 bg-transparent resize-none outline-none" placeholder="Type your message..."></textarea>
+                    <button id="send-button" class="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow transition-colors duration-150 flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform -rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicatorContainer = document.getElementById('typing-indicator-container');
+        const errorMessageContainer = document.getElementById('error-message-container');
+        const errorText = document.getElementById('error-text');
+        const statusIndicator = document.getElementById('status-indicator');
+        const systemInstructionInput = document.getElementById('system-instruction-input');
+        
+        // Renamed IDs for the 'inner' buttons, matching the new HTML structure
+        const attachButton = document.getElementById('attach-button-inner');
+        const fileInput = document.getElementById('file-input');
+        const micButton = document.getElementById('mic-button-inner');
+        const speakerButton = document.getElementById('speaker-button-inner');
+
+        const inputLanguageSelect = document.getElementById('input-language-select');
+        const outputLanguageSelect = document.getElementById('output-language-select');
+        
+        const toggleSettingsPanelButton = document.getElementById('toggle-settings-panel');
+        const settingsPanelContent = document.getElementById('settings-panel-content');
+
+        // IMPORTANT: Replace with your actual Gemini API Key
+        // If you don't have one, please get it from Google AI Studio: https://aistudio.google.com/
+        const API_KEY = "AIzaSyBboUkd3gq2Yy7deAd9W9s-HQUgcrjO2WQ"; // Replace with your actual API key
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+        // Initialize marked.js for Markdown parsing
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            highlight: function(code, lang) {
+                const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                const highlightedCode = hljs.highlight(code, { language }).value;
+
+                return `
+                    <div class="code-block-wrapper">
+                        <div class="code-block-header">
+                            <span>${lang || 'plaintext'}</span>
+                            <div>
+                                <button onclick="copyToClipboard(this)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v4m0 0l-3 3m3-3l3 3m0 0V9m0 0a2 2 0 11-4 0v4a2 2 0 114 0m-4 0V9m0 0a2 2 0 114 0m-4 0a2 2 0 114 0" />
+                                    </svg>
+                                    Copy
+                                </button>
+                                <button>Edit</button>
+                            </div>
+                        </div>
+                        <pre><code class="language-${language}">${highlightedCode}</code></pre>
+                    </div>
+                `;
+            }
+        });
+
+        let chatHistory = [
+            { role: "model", parts: [{ text: "Hello! How can I help you today?" }] }
+        ];
+
+        // --- Language Settings and Persistence ---
+        let currentInputLang = localStorage.getItem('inputLang') || 'en-US';
+        let currentOutputLang = localStorage.getItem('outputLang') || 'en-US';
+        let availableVoices = [];
+
+        inputLanguageSelect.value = currentInputLang;
+        outputLanguageSelect.value = currentOutputLang;
+
+        inputLanguageSelect.addEventListener('change', (event) => {
+            currentInputLang = event.target.value;
+            localStorage.setItem('inputLang', currentInputLang);
+            if (recognition) {
+                recognition.lang = currentInputLang;
+            }
+        });
+
+        outputLanguageSelect.addEventListener('change', (event) => {
+            currentOutputLang = event.target.value;
+            localStorage.setItem('outputLang', currentOutputLang);
+            if (voiceOutputEnabled) {
+                console.log(`Output language changed to: ${currentOutputLang}`);
+            }
+        });
+        // --- End Language Settings and Persistence ---
+
+
+        // --- Speech Recognition (Mic Input) Setup ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = currentInputLang;
+
+            recognition.onstart = () => {
+                isListening = true;
+                micButton.classList.add('listening');
+                messageInput.placeholder = "Listening...";
+                showErrorMessage(null);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                micButton.classList.remove('listening');
+                messageInput.placeholder = "Type your message...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                messageInput.value = transcript;
+                handleSendMessage();
+            };
+
+            recognition.onerror = (event) => {
+                isListening = false;
+                micButton.classList.remove('listening');
+                messageInput.placeholder = "Type your message...";
+                console.error('Speech Recognition Error:', event.error);
+                let errorMsg = `Microphone error (${event.error}). `;
+                if (event.error === 'not-allowed') {
+                    errorMsg += "Please allow microphone access in your browser settings.";
+                } else if (event.error === 'no-speech') {
+                    errorMsg += "No speech detected. Please try again.";
+                } else if (event.error === 'network') {
+                    errorMsg += "Network error. Please check your connection.";
+                } else if (event.error === 'language-not-supported') {
+                    errorMsg += `The selected input language (${currentInputLang}) might not be fully supported by your browser's speech recognition.`;
+                }
+                showErrorMessage(errorMsg);
+            };
+
+            micButton.addEventListener('click', () => {
+                if (isListening) {
+                    recognition.stop();
+                } else {
+                    if (speechSynthesis.speaking) {
+                        speechSynthesis.cancel();
+                    }
+                    recognition.lang = currentInputLang;
+                    recognition.start();
+                }
+            });
+        } else {
+            console.warn("Web Speech API (Speech Recognition) not supported in this browser.");
+            micButton.disabled = true;
+            micButton.title = "Voice input not supported";
+            micButton.style.opacity = "0.5";
+            micButton.style.cursor = "not-allowed";
+        }
+        // --- End Speech Recognition Setup ---
+
+        // --- Text-to-Speech (AI Voice Output) Setup ---
+        let voiceOutputEnabled = localStorage.getItem('voiceOutputEnabled') === 'true';
+
+        function loadVoices() {
+            availableVoices = speechSynthesis.getVoices();
+            console.log("Available voices:", availableVoices.map(v => v.name + " (" + v.lang + ")"));
+            // Set initial state of speaker button based on voiceOutputEnabled
+            if (voiceOutputEnabled) {
+                // speakerButton.classList.add('active'); // Speaker already green by default in new design
+            } else {
+                // speakerButton.classList.remove('active'); // No need to remove if it's always green
+            }
+            speakerButton.title = voiceOutputEnabled ? "Toggle AI voice output (currently ON)" : "Toggle AI voice output (currently OFF)";
+        }
+
+        if ('speechSynthesis' in window) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+            loadVoices();
+        } else {
+            console.warn("Web Speech API (Text-to-Speech) not supported in this browser.");
+            speakerButton.disabled = true;
+            speakerButton.title = "Voice output not supported";
+            speakerButton.style.opacity = "0.5";
+            speakerButton.style.cursor = "not-allowed";
+        }
+
+        function speakText(text) {
+            if (!voiceOutputEnabled || !('speechSynthesis' in window)) {
+                return;
+            }
+
+            speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = currentOutputLang;
+
+            let selectedVoice = null;
+
+            selectedVoice = availableVoices.find(voice => voice.lang === currentOutputLang);
+
+            if (!selectedVoice) {
+                selectedVoice = availableVoices.find(voice => voice.lang === currentOutputLang && voice.name.includes('Google'));
+            }
+
+            if (!selectedVoice) {
+                const langCodePrefix = currentOutputLang.split('-')[0];
+                selectedVoice = availableVoices.find(voice => voice.lang.startsWith(langCodePrefix));
+            }
+
+
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+                console.log(`Using voice: ${selectedVoice.name} (${selectedVoice.lang}) for output language ${currentOutputLang}`);
+            } else {
+                console.warn(`No suitable voice found for ${currentOutputLang}. Using browser's default for the language or a fallback.`);
+            }
+
+            utterance.onerror = (event) => {
+                console.error('SpeechSynthesisUtterance.onerror', event);
+                showErrorMessage(`Voice output error for ${currentOutputLang}: ${event.error}. This language might not have a voice available on your system/browser.`);
+            };
+
+            utterance.onend = () => {
+                console.log("Speech finished.");
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        speakerButton.addEventListener('click', () => {
+            voiceOutputEnabled = !voiceOutputEnabled;
+            localStorage.setItem('voiceOutputEnabled', voiceOutputEnabled);
+            // In this specific design, the speaker button is always green.
+            // If we want a visual toggle, we'd need more distinct classes.
+            if (voiceOutputEnabled) {
+                speakText("Voice output enabled.");
+            } else {
+                speechSynthesis.cancel();
+            }
+            speakerButton.title = voiceOutputEnabled ? "Toggle AI voice output (currently ON)" : "Toggle AI voice output (currently OFF)";
+        });
+
+        // --- End Text-to-Speech Setup ---
+
+
+        // Function to copy code to clipboard
+        function copyToClipboard(buttonElement) {
+            const wrapper = buttonElement.closest('.code-block-wrapper');
+            if (!wrapper) return;
+
+            const codeElement = wrapper.querySelector('pre code');
+            if (codeElement) {
+                const codeText = codeElement.innerText;
+
+                navigator.clipboard.writeText(codeText).then(() => {
+                    const originalText = buttonElement.textContent;
+                    buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Copied!`;
+                    setTimeout(() => {
+                        buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7v4m0 0l-3 3m3-3l3 3m0 0V9m0 0a2 2 0 11-4 0v4a2 2 0 114 0m-4 0V9m0 0a2 2 0 114 0m-4 0a2 2 0 114 0" /></svg>Copy`;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy text: ', err);
+                    alert('Failed to copy code. Please copy manually.');
+                });
+            }
+        }
+        window.copyToClipboard = copyToClipboard;
+
+
+        // Function to auto-resize message input textarea
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = messageInput.scrollHeight + 'px';
+            if (messageInput.scrollHeight > parseInt(getComputedStyle(messageInput).maxHeight)) {
+                messageInput.style.overflowY = 'auto';
+            } else {
+                messageInput.style.overflowY = 'hidden';
+            }
+        });
+
+        sendButton.addEventListener('click', handleSendMessage);
+        messageInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                handleSendMessage();
+            }
+        });
+
+        attachButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                // You can add file handling logic here.
+                // For now, let's just display a message.
+                displayMessage(`Attached file: ${file.name}`, 'user');
+                // In a real application, you'd process the file (e.g., upload, convert to base64 for API).
+                console.log('File attached:', file);
+            }
+        });
+
+        toggleSettingsPanelButton.addEventListener('click', () => {
+            const isExpanded = toggleSettingsPanelButton.classList.toggle('expanded');
+            toggleSettingsPanelButton.classList.toggle('collapsed', !isExpanded);
+
+            if (isExpanded) {
+                settingsPanelContent.style.display = 'block';
+                // Trigger reflow to ensure display:block is applied before transition
+                settingsPanelContent.offsetHeight;
+                settingsPanelContent.style.maxHeight = settingsPanelContent.scrollHeight + 'px';
+                settingsPanelContent.style.opacity = '1';
+            } else {
+                settingsPanelContent.style.maxHeight = '0';
+                settingsPanelContent.style.opacity = '0';
+                settingsPanelContent.addEventListener('transitionend', function handler() {
+                    settingsPanelContent.style.display = 'none';
+                    settingsPanelContent.removeEventListener('transitionend', handler);
+                }, { once: true });
+            }
+        });
+
+
+        function displayMessage(text, sender, isError = false) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('flex', 'message-bubble');
+
+            const textContainer = document.createElement('div');
+            textContainer.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'lg:max-w-md', 'shadow', 'text-sm');
+
+            if (sender === 'user') {
+                messageElement.classList.add('justify-end');
+                textContainer.classList.add('user', 'bg-blue-600', 'text-white', 'rounded-br-none');
+            } else { // bot or loading
+                messageElement.classList.add('justify-start');
+                if (isError) {
+                    textContainer.classList.add('error', 'bg-red-100', 'text-red-700');
+                } else {
+                    textContainer.classList.add('bot', 'bg-white', 'text-gray-800', 'rounded-bl-none');
+                }
+            }
+            
+            // Use marked.js to parse Markdown to HTML
+            textContainer.innerHTML = marked.parse(text);
+
+            messageElement.appendChild(textContainer);
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to the latest message
+            
+            // If it's a bot message and voice output is enabled, speak it
+            if (sender === 'bot' && voiceOutputEnabled && !isError) {
+                speakText(text);
+            }
+        }
+
+        function showTypingIndicator() {
+            typingIndicatorContainer.classList.remove('hidden');
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show indicator
+        }
+
+        function hideTypingIndicator() {
+            typingIndicatorContainer.classList.add('hidden');
+        }
+
+        function showErrorMessage(message) {
+            if (message) {
+                errorText.textContent = message;
+                errorMessageContainer.classList.remove('hidden');
+            } else {
+                errorMessageContainer.classList.add('hidden');
+                errorText.textContent = '';
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show error
+        }
+
+        async function handleSendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            displayMessage(message, 'user');
+            chatHistory.push({ role: "user", parts: [{ text: message }] });
+            messageInput.value = '';
+            messageInput.style.height = 'auto'; // Reset height after sending
+
+            showTypingIndicator();
+            showErrorMessage(null); // Clear previous errors
+
+            try {
+                const systemInstruction = systemInstructionInput.value.trim();
+                const contents = [...chatHistory];
+                if (systemInstruction) {
+                    contents.unshift({ role: "system", parts: [{ text: systemInstruction }] });
+                }
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: contents,
+                        generationConfig: {
+                            temperature: 0.7,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 1000,
+                        },
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('API Error:', errorData);
+                    let errorMessage = `API Error: ${response.status} ${response.statusText}.`;
+                    if (errorData && errorData.error && errorData.error.message) {
+                        errorMessage += ` Details: ${errorData.error.message}`;
+                    }
+                    displayMessage(`Sorry, there was an issue getting a response. ${errorMessage}`, 'bot', true);
+                    showErrorMessage(`Failed to get response: ${errorMessage}`);
+                    return;
+                }
+
+                const data = await response.json();
+                const botMessage = data.candidates[0].content.parts[0].text;
+                displayMessage(botMessage, 'bot');
+                chatHistory.push({ role: "model", parts: [{ text: botMessage }] });
+            } catch (error) {
+                console.error('Fetch error:', error);
+                displayMessage('An unexpected error occurred. Please try again.', 'bot', true);
+                showErrorMessage(`An unexpected error occurred: ${error.message}`);
+            } finally {
+                hideTypingIndicator();
+            }
+        }
+    </script>
+</body>
+</html>

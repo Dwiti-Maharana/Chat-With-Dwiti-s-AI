@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
+<!-- speaker-button-inner -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -214,13 +214,18 @@
             background-color: #e2e8f0; /* Light gray background for attach */
             color: #718096; /* Default gray for icon */
         }
+        .active{
+            background-color: #1a9e4f;
+        }
         #speaker-button-inner {
-            background-color: #22c55e; /* Green background for speaker */
+            background-color: #718096; /* Default gray for icon */
+            /* background-color: #22c55e;  */
             color: white; /* White icon */
         }
         #speaker-button-inner:hover {
             background-color: #1a9e4f; /* Slightly darker green on hover */
         }
+
 
         #mic-button-inner {
             background-color: #e2e8f0; /* Light gray background for mic */
@@ -661,8 +666,12 @@
             // If we want a visual toggle, we'd need more distinct classes.
             if (voiceOutputEnabled) {
                 speakText("Voice output enabled.");
+                speakerButton.style.backgroundColor = "#1a9e4f"; // Green background
+                // return speakerButton.classList.add('active'); // Speaker already green by default in new design
             } else {
                 speechSynthesis.cancel();
+                speakerButton.style.backgroundColor = "#718096"; // Default gray background
+                // speakerButton.classList.remove('active'); // No need to remove if it's always green
             }
             speakerButton.title = voiceOutputEnabled ? "Toggle AI voice output (currently ON)" : "Toggle AI voice output (currently OFF)";
         });

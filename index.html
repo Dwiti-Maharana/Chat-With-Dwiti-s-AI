@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<!-- speaker-button-inner -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -436,7 +435,7 @@
                 </div>
             </div>
         </div>
-        </div>
+    </div>
 
     <script>
         const chatMessages = document.getElementById('chat-messages');
@@ -510,6 +509,7 @@
             localStorage.setItem('inputLang', currentInputLang);
             if (recognition) {
                 recognition.lang = currentInputLang;
+                console.log("Recognition language set to:", recognition.lang); // Debugging line
             }
         });
 
@@ -531,7 +531,7 @@
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.continuous = false;
-            recognition.lang = currentInputLang;
+            recognition.lang = currentInputLang; // Set initial language
 
             recognition.onstart = () => {
                 isListening = true;
@@ -577,7 +577,8 @@
                     if (speechSynthesis.speaking) {
                         speechSynthesis.cancel();
                     }
-                    recognition.lang = currentInputLang;
+                    recognition.lang = currentInputLang; // Ensure language is set before starting
+                    console.log("Starting recognition with language:", recognition.lang); // Debugging line
                     recognition.start();
                 }
             });
@@ -598,16 +599,16 @@
             console.log("Available voices:", availableVoices.map(v => v.name + " (" + v.lang + ")"));
             // Set initial state of speaker button based on voiceOutputEnabled
             if (voiceOutputEnabled) {
-                // speakerButton.classList.add('active'); // Speaker already green by default in new design
+                speakerButton.style.backgroundColor = "#1a9e4f"; // Green background
             } else {
-                // speakerButton.classList.remove('active'); // No need to remove if it's always green
+                speakerButton.style.backgroundColor = "#718096"; // Default gray background
             }
             speakerButton.title = voiceOutputEnabled ? "Toggle AI voice output (currently ON)" : "Toggle AI voice output (currently OFF)";
         }
 
         if ('speechSynthesis' in window) {
             speechSynthesis.onvoiceschanged = loadVoices;
-            loadVoices();
+            loadVoices(); // Call once initially to load voices if they are ready
         } else {
             console.warn("Web Speech API (Text-to-Speech) not supported in this browser.");
             speakerButton.disabled = true;
@@ -628,12 +629,15 @@
 
             let selectedVoice = null;
 
+            // Try to find an exact match first
             selectedVoice = availableVoices.find(voice => voice.lang === currentOutputLang);
 
+            // If not found, try to find a Google voice for the language
             if (!selectedVoice) {
                 selectedVoice = availableVoices.find(voice => voice.lang === currentOutputLang && voice.name.includes('Google'));
             }
 
+            // If still not found, try to find any voice with the same language prefix (e.g., 'or' for 'or-IN')
             if (!selectedVoice) {
                 const langCodePrefix = currentOutputLang.split('-')[0];
                 selectedVoice = availableVoices.find(voice => voice.lang.startsWith(langCodePrefix));
@@ -662,16 +666,13 @@
         speakerButton.addEventListener('click', () => {
             voiceOutputEnabled = !voiceOutputEnabled;
             localStorage.setItem('voiceOutputEnabled', voiceOutputEnabled);
-            // In this specific design, the speaker button is always green.
-            // If we want a visual toggle, we'd need more distinct classes.
+            
             if (voiceOutputEnabled) {
-                speakText("Voice output enabled.");
                 speakerButton.style.backgroundColor = "#1a9e4f"; // Green background
-                // return speakerButton.classList.add('active'); // Speaker already green by default in new design
+                speakText("Voice output enabled.");
             } else {
-                speechSynthesis.cancel();
+                speechSynthesis.cancel(); // Stop any ongoing speech
                 speakerButton.style.backgroundColor = "#718096"; // Default gray background
-                // speakerButton.classList.remove('active'); // No need to remove if it's always green
             }
             speakerButton.title = voiceOutputEnabled ? "Toggle AI voice output (currently ON)" : "Toggle AI voice output (currently OFF)";
         });
@@ -690,115 +691,91 @@
 
                 navigator.clipboard.writeText(codeText).then(() => {
                     const originalText = buttonElement.textContent;
-                    buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Copied!`;
+                    buttonElement.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                    `;
                     setTimeout(() => {
-                        buttonElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7v4m0 0l-3 3m3-3l3 3m0 0V9m0 0a2 2 0 11-4 0v4a2 2 0 114 0m-4 0V9m0 0a2 2 0 114 0m-4 0a2 2 0 114 0" /></svg>Copy`;
+                        buttonElement.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7v4m0 0l-3 3m3-3l3 3m0 0V9m0 0a2 2 0 11-4 0v4a2 2 0 114 0m-4 0V9m0 0a2 2 0 114 0m-4 0a2 2 0 114 0" />
+                            </svg>
+                            Copy
+                        `;
                     }, 2000);
                 }).catch(err => {
                     console.error('Failed to copy text: ', err);
-                    alert('Failed to copy code. Please copy manually.');
                 });
             }
         }
+
+        // Expose copyToClipboard to the global scope so it can be called from onclick
         window.copyToClipboard = copyToClipboard;
 
 
-        // Function to auto-resize message input textarea
-        messageInput.addEventListener('input', () => {
-            messageInput.style.height = 'auto';
-            messageInput.style.height = messageInput.scrollHeight + 'px';
-            if (messageInput.scrollHeight > parseInt(getComputedStyle(messageInput).maxHeight)) {
-                messageInput.style.overflowY = 'auto';
-            } else {
-                messageInput.style.overflowY = 'hidden';
-            }
-        });
-
-        sendButton.addEventListener('click', handleSendMessage);
-        messageInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                handleSendMessage();
-            }
-        });
-
-        attachButton.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        fileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                // You can add file handling logic here.
-                // For now, let's just display a message.
-                displayMessage(`Attached file: ${file.name}`, 'user');
-                // In a real application, you'd process the file (e.g., upload, convert to base64 for API).
-                console.log('File attached:', file);
-            }
-        });
-
-        toggleSettingsPanelButton.addEventListener('click', () => {
-            const isExpanded = toggleSettingsPanelButton.classList.toggle('expanded');
-            toggleSettingsPanelButton.classList.toggle('collapsed', !isExpanded);
-
-            if (isExpanded) {
-                settingsPanelContent.style.display = 'block';
-                // Trigger reflow to ensure display:block is applied before transition
-                settingsPanelContent.offsetHeight;
-                settingsPanelContent.style.maxHeight = settingsPanelContent.scrollHeight + 'px';
-                settingsPanelContent.style.opacity = '1';
-            } else {
-                settingsPanelContent.style.maxHeight = '0';
-                settingsPanelContent.style.opacity = '0';
-                settingsPanelContent.addEventListener('transitionend', function handler() {
-                    settingsPanelContent.style.display = 'none';
-                    settingsPanelContent.removeEventListener('transitionend', handler);
-                }, { once: true });
-            }
-        });
-
-
-        function displayMessage(text, sender, isError = false) {
+        // Function to display messages in the chat
+        function displayMessage(message, sender, attachment = null) {
             const messageElement = document.createElement('div');
-            messageElement.classList.add('flex', 'message-bubble');
+            messageElement.classList.add('flex', 'mb-4');
 
-            const textContainer = document.createElement('div');
-            textContainer.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'lg:max-w-md', 'shadow', 'text-sm');
+            const bubbleElement = document.createElement('div');
+            bubbleElement.classList.add(
+                'message-bubble',
+                'p-3',
+                'rounded-lg',
+                'max-w-xs',
+                'lg:max-w-md',
+                'shadow',
+                'relative'
+            );
 
             if (sender === 'user') {
                 messageElement.classList.add('justify-end');
-                textContainer.classList.add('user', 'bg-blue-600', 'text-white', 'rounded-br-none');
-            } else { // bot or loading
+                bubbleElement.classList.add('user', 'bg-gray-200', 'text-gray-800', 'rounded-br-none');
+            } else if (sender === 'bot') {
                 messageElement.classList.add('justify-start');
-                if (isError) {
-                    textContainer.classList.add('error', 'bg-red-100', 'text-red-700');
-                } else {
-                    textContainer.classList.add('bot', 'bg-white', 'text-gray-800', 'rounded-bl-none');
-                }
+                bubbleElement.classList.add('bot', 'bg-white', 'text-gray-800', 'rounded-bl-none');
+                bubbleElement.innerHTML = marked.parse(message); // Parse Markdown for bot messages
+            } else if (sender === 'error') {
+                messageElement.classList.add('justify-center', 'w-full');
+                bubbleElement.classList.add('error', 'bg-red-100', 'text-red-700', 'border', 'border-red-400');
+                bubbleElement.innerHTML = `<strong class="font-bold">Error:</strong> <span class="block sm:inline">${message}</span>`;
             }
-            
-            // Use marked.js to parse Markdown to HTML
-            textContainer.innerHTML = marked.parse(text);
 
-            messageElement.appendChild(textContainer);
+            if (sender !== 'bot') { // For user and error messages, just set innerText
+                bubbleElement.innerText = message;
+            }
+
+            if (attachment) {
+                const attachmentLink = document.createElement('a');
+                attachmentLink.href = attachment.url;
+                attachmentLink.download = attachment.name;
+                attachmentLink.classList.add('attachment-link', 'mt-2');
+                attachmentLink.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd" />
+                    </svg>
+                    <span>${attachment.name}</span>
+                `;
+                bubbleElement.appendChild(attachmentLink);
+            }
+
+            messageElement.appendChild(bubbleElement);
             chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to the latest message
-            
-            // If it's a bot message and voice output is enabled, speak it
-            if (sender === 'bot' && voiceOutputEnabled && !isError) {
-                speakText(text);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll to bottom
+        }
+
+        // Function to show/hide typing indicator
+        function showTypingIndicator(show) {
+            typingIndicatorContainer.classList.toggle('hidden', !show);
+            if (show) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         }
 
-        function showTypingIndicator() {
-            typingIndicatorContainer.classList.remove('hidden');
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show indicator
-        }
-
-        function hideTypingIndicator() {
-            typingIndicatorContainer.classList.add('hidden');
-        }
-
+        // Function to show/hide error message
         function showErrorMessage(message) {
             if (message) {
                 errorText.textContent = message;
@@ -807,67 +784,120 @@
                 errorMessageContainer.classList.add('hidden');
                 errorText.textContent = '';
             }
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show error
         }
 
+        // Function to handle sending messages
         async function handleSendMessage() {
-            const message = messageInput.value.trim();
-            if (!message) return;
+            const messageText = messageInput.value.trim();
+            if (messageText === '') {
+                return;
+            }
 
-            displayMessage(message, 'user');
-            chatHistory.push({ role: "user", parts: [{ text: message }] });
+            displayMessage(messageText, 'user');
+            chatHistory.push({ role: "user", parts: [{ text: messageText }] });
             messageInput.value = '';
-            messageInput.style.height = 'auto'; // Reset height after sending
-
-            showTypingIndicator();
             showErrorMessage(null); // Clear previous errors
+
+            showTypingIndicator(true);
 
             try {
                 const systemInstruction = systemInstructionInput.value.trim();
                 const contents = [...chatHistory];
+
                 if (systemInstruction) {
-                    contents.unshift({ role: "system", parts: [{ text: systemInstruction }] });
+                    contents.unshift({
+                        role: "system",
+                        parts: [{ text: systemInstruction }]
+                    });
                 }
 
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        contents: contents,
-                        generationConfig: {
-                            temperature: 0.7,
-                            topK: 40,
-                            topP: 0.95,
-                            maxOutputTokens: 1000,
-                        },
-                    }),
+                        contents: contents
+                    })
                 });
 
                 if (!response.ok) {
                     const errorData = await response.json();
                     console.error('API Error:', errorData);
-                    let errorMessage = `API Error: ${response.status} ${response.statusText}.`;
-                    if (errorData && errorData.error && errorData.error.message) {
-                        errorMessage += ` Details: ${errorData.error.message}`;
-                    }
-                    displayMessage(`Sorry, there was an issue getting a response. ${errorMessage}`, 'bot', true);
-                    showErrorMessage(`Failed to get response: ${errorMessage}`);
-                    return;
+                    throw new Error(errorData.error.message || `API request failed with status: ${response.status}`);
                 }
 
                 const data = await response.json();
-                const botMessage = data.candidates[0].content.parts[0].text;
-                displayMessage(botMessage, 'bot');
-                chatHistory.push({ role: "model", parts: [{ text: botMessage }] });
+                const botResponse = data.candidates[0].content.parts[0].text;
+                displayMessage(botResponse, 'bot');
+                chatHistory.push({ role: "model", parts: [{ text: botResponse }] });
+
+                if (voiceOutputEnabled) {
+                    speakText(botResponse);
+                }
+
             } catch (error) {
-                console.error('Fetch error:', error);
-                displayMessage('An unexpected error occurred. Please try again.', 'bot', true);
-                showErrorMessage(`An unexpected error occurred: ${error.message}`);
+                console.error('Failed to send message:', error);
+                displayMessage(`Failed to get response from AI: ${error.message}. Please try again later.`, 'error');
             } finally {
-                hideTypingIndicator();
+                showTypingIndicator(false);
             }
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', handleSendMessage);
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Prevent new line
+                handleSendMessage();
+            }
+        });
+
+        // Adjust textarea height dynamically
+        messageInput.addEventListener('input', () => {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = (messageInput.scrollHeight) + 'px';
+            if (messageInput.scrollHeight > parseInt(getComputedStyle(messageInput).maxHeight)) {
+                messageInput.style.overflowY = 'auto';
+            } else {
+                messageInput.style.overflowY = 'hidden';
+            }
+        });
+
+        systemInstructionInput.addEventListener('input', () => {
+            systemInstructionInput.style.height = 'auto';
+            systemInstructionInput.style.height = (systemInstructionInput.scrollHeight) + 'px';
+            if (systemInstructionInput.scrollHeight > parseInt(getComputedStyle(systemInstructionInput).maxHeight)) {
+                systemInstructionInput.style.overflowY = 'auto';
+            } else {
+                systemInstructionInput.style.overflowY = 'hidden';
+            }
+        });
+
+        // Toggle settings panel
+        toggleSettingsPanelButton.addEventListener('click', () => {
+            const isExpanded = toggleSettingsPanelButton.classList.toggle('expanded');
+            toggleSettingsPanelButton.classList.toggle('collapsed', !isExpanded);
+            settingsPanelContent.style.display = isExpanded ? 'block' : 'none';
+        });
+
+        // Attach file button (functionality to be implemented later)
+        attachButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                alert(`File selected: ${file.name} (File upload functionality is not yet implemented.)`);
+                // Here you would typically read the file and send it with the message
+            }
+        });
+
+        // Initial check for speaker button style
+        if (voiceOutputEnabled) {
+            speakerButton.style.backgroundColor = "#1a9e4f"; // Green background if enabled
         }
     </script>
 </body>
